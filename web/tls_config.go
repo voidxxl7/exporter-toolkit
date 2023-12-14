@@ -60,6 +60,7 @@ type TLSConfig struct {
 
 type FlagConfig struct {
 	WebListenAddresses *[]string
+	WebUnixSockets     *[]string
 	WebSystemdSocket   *bool
 	WebConfigFile      *string
 }
@@ -274,12 +275,12 @@ func ServeMultiple(listeners []net.Listener, server *http.Server, flags *FlagCon
 	return errs.Wait()
 }
 
-// ListenAndServe starts the server on addresses given in WebListenAddresses in
+// ListenAndServe starts the server on addresses given in WebListenAddresses and WebUnixSockets in
 // the FlagConfig or instead uses systemd socket activated listeners if
 // WebSystemdSocket in the FlagConfig is true. The FlagConfig is also passed on
 // to ServeMultiple.
 func ListenAndServe(server *http.Server, flags *FlagConfig, logger log.Logger) error {
-	if flags.WebSystemdSocket == nil && (flags.WebListenAddresses == nil || len(*flags.WebListenAddresses) == 0) {
+	if flags.WebSystemdSocket == nil && (flags.WebListenAddresses == nil || len(*flags.WebListenAddresses) == 0) && len(*flags.WebUnixSockets) == 0 {
 		return ErrNoListeners
 	}
 
@@ -298,6 +299,14 @@ func ListenAndServe(server *http.Server, flags *FlagConfig, logger log.Logger) e
 	listeners := make([]net.Listener, 0, len(*flags.WebListenAddresses))
 	for _, address := range *flags.WebListenAddresses {
 		listener, err := net.Listen("tcp", address)
+		if err != nil {
+			return err
+		}
+		defer listener.Close()
+		listeners = append(listeners, listener)
+	}
+	for _, f := range *flags.WebUnixSockets {
+		listener, err := net.Listen("unix", f)
 		if err != nil {
 			return err
 		}

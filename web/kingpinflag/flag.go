@@ -23,18 +23,24 @@ import (
 // To use the default Kingpin application, call
 // AddFlags(kingpin.CommandLine, ":portNum") where portNum is the default port.
 func AddFlags(a *kingpin.Application, defaultAddress string) *web.FlagConfig {
-	systemdSocket := func() *bool { b := false; return &b }() // Socket activation only available on Linux
+	systemdSocket := func() *bool { b := false; return &b }()        // Socket activation only available on Linux
+	unixSockets := func() *[]string { b := []string{}; return &b }() // Unix socket only available on Linux
 	if runtime.GOOS == "linux" {
 		systemdSocket = a.Flag(
 			"web.systemd-socket",
 			"Use systemd socket activation listeners instead of port listeners (Linux only).",
 		).Bool()
+		unixSockets = a.Flag(
+			"web.unix-socket",
+			"Use unix socket as listeners, repeatable for multiple addresses. Can be used both with web listeners (Linux only).",
+		).Strings()
 	}
 	flags := web.FlagConfig{
 		WebListenAddresses: a.Flag(
 			"web.listen-address",
 			"Addresses on which to expose metrics and web interface. Repeatable for multiple addresses.",
 		).Default(defaultAddress).Strings(),
+		WebUnixSockets:   unixSockets,
 		WebSystemdSocket: systemdSocket,
 		WebConfigFile: a.Flag(
 			"web.config.file",
